@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# No secrets are used and nothing here talks to SLT. The test suite only exercises the pure
+# parsing and threshold logic, plus the CLI paths that return before any network call.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["18", "20", "22"]
+
+    name: node ${{ matrix.node }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Syntax check
+        run: node --check check.mjs
+
+      # The file glob is deliberate. Node 18 and 20 accept a bare `test/` directory, but Node
+      # 22 treats the positional argument as a glob pattern, matches the directory itself and
+      # then fails trying to execute it. Letting the shell expand the pattern works on all
+      # three, since Node only ever sees real file paths.
+      - name: Run tests
+        run: |
+          # Guard: an unmatched glob is passed through literally and Node 22 then reports
+          # "0 tests" with a zero exit, so an empty or renamed test/ would go green.
+          shopt -s nullglob; files=(test/*.test.mjs)
+          if [ ${#files[@]} -eq 0 ]; then echo "No test files matched test/*.test.mjs"; exit 1; fi
+          echo "Running ${#files[@]} test file(s)"
+          node --test "${files[@]}"
+        shell: bash

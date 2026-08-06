@@ -1,0 +1,93 @@
+name: SLT data check
+
+on:
+  schedule:
+    # Escalating cadence across the billing month (the quota resets around the 1st): coast
+    # early when there is plenty left, check often near month end when you are near the cap.
+    #
+    # Note: GitHub runs scheduled workflows on a best-effort basis and delays or drops them
+    # under load, especially on free accounts. The tighter tiers below are an upper bound on
+    # how often this runs, not a guarantee. In practice expect noticeably fewer runs.
+    - cron: "0 */6 1-7 * *"     # days 1 to 7:   every 6 hours
+    - cron: "0 */2 8-14 * *"    # days 8 to 14:  every 2 hours
+    - cron: "0 * 15-21 * *"     # days 15 to 21: hourly
+    - cron: "*/15 * 22-31 * *"  # days 22 to end: every 15 minutes
+
+  workflow_dispatch:
+    inputs:
+      now:
+        description: "Send current balances immediately, ignoring thresholds"
+        type: boolean
+        default: false
+
+# Read-only. State lives in the Actions cache, so this workflow never writes to the repo.
+permissions:
+  contents: read
+
+concurrency:
+  group: slt-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Threshold state persists between runs via the Actions cache rather than by committing
+      # back to the repository. If the cache is ever lost the next run simply re-baselines,
+      # costing whatever alerts would have fired in the gap, usually one.
+      - name: Restore threshold state
+        uses: actions/cache/restore@v4
+        with:
+          path: state.json
+          key: myslt-state-
+          restore-keys: myslt-state-
+
+      - name: Fingerprint state before run
+        id: before
+        run: echo "hash=$(sha256sum state.json 2>/dev/null | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Run usage check
+        env:
+          SLT_USERNAME: ${{ secrets.SLT_USERNAME }}
+          SLT_PASSWORD: ${{ secrets.SLT_PASSWORD }}
+          SLT_SUBSCRIBER_ID: ${{ secrets.SLT_SUBSCRIBER_ID }}
+
+          # Optional: pin one channel (telegram | whatsapp | sms | webhook).
+          CHANNEL: ${{ vars.CHANNEL }}
+
+          # Telegram (recommended default)
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+          # WhatsApp via Green API (advanced). The instance id and host are not secret, so set
+          # them as repository variables; only the token and your number belong in secrets.
+          GREENAPI_ID_INSTANCE: ${{ vars.GREENAPI_ID_INSTANCE }}
+          GREENAPI_API_URL: ${{ vars.GREENAPI_API_URL }}
+          GREENAPI_API_TOKEN: ${{ secrets.GREENAPI_API_TOKEN }}
+          GREENAPI_CHAT_ID: ${{ secrets.GREENAPI_CHAT_ID }}
+
+          # SMS via text.lk
+          TEXTLK_API_TOKEN: ${{ secrets.TEXTLK_API_TOKEN }}
+          TEXTLK_RECIPIENT: ${{ secrets.TEXTLK_RECIPIENT }}
+          TEXTLK_SENDER_ID: ${{ vars.TEXTLK_SENDER_ID }}
+
+          # Generic webhook (Discord, Slack, ntfy, Home Assistant, and so on)
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+        run: node check.mjs ${{ inputs.now && '--now' || '' }}
+
+      - name: Fingerprint state after run
+        id: after
+        run: echo "hash=$(sha256sum state.json 2>/dev/null | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Save threshold state
+        if: steps.before.outputs.hash != steps.after.outputs.hash
+        uses: actions/cache/save@v4
+        with:
+          path: state.json
+          key: myslt-state-${{ github.run_id }}-${{ github.run_attempt }}

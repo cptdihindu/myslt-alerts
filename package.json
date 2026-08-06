@@ -1,0 +1,44 @@
+{
+  "name": "myslt-alerts",
+  "version": "1.0.0",
+  "description": "Zero-dependency Node CLI that checks your Sri Lanka Telecom (SLT) broadband usage and alerts you on Telegram, WhatsApp, SMS or a webhook before you run out of data.",
+  "type": "module",
+  "main": "check.mjs",
+  "bin": {
+    "myslt-alerts": "check.mjs"
+  },
+  "scripts": {
+    "check": "node check.mjs",
+    "now": "node check.mjs --now",
+    "test": "node --test test/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "check.mjs",
+    "docs",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "slt",
+    "sri-lanka",
+    "broadband",
+    "data-usage",
+    "telegram",
+    "whatsapp",
+    "github-actions",
+    "myslt"
+  ],
+  "author": "Rivin Sandeepa",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ri7in/myslt-alerts.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ri7in/myslt-alerts/issues"
+  },
+  "homepage": "https://github.com/ri7in/myslt-alerts#readme"
+}

@@ -1,0 +1,19 @@
+# Local secrets. Never commit these.
+.env
+.env.*
+!.env.example
+
+# Dependencies (there are none, but npm may still create this)
+node_modules/
+
+# Local-only overrides of any kind
+*.local
+
+# macOS
+.DS_Store
+
+# Threshold state written by a local run. Ignored by default: it holds no credentials, but it
+# does record roughly how much data you use, and publishing that to a public fork is rarely
+# what you want. The scheduled workflow does not need it in git either, since it carries state
+# between runs through the Actions cache. Delete this line if you would rather track it.
+state.json
