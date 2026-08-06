@@ -84,6 +84,11 @@ git push -u origin main
 
 Two things to get right. Git will not commit until `user.name` and `user.email` are set, globally with `git config --global` or per repository as above. And create the GitHub repository **empty**: if you let GitHub add a README, a licence or a `.gitignore`, the remote has a commit your history does not share and the first push is rejected as non-fast-forward. Part 4 then applies unchanged, except that `git push` alone is enough since `origin` is already set.
 
+> **Note on this repository's own Actions tab.** The `SLT data check` workflow is disabled here
+> on purpose. This repository is the source you copy, not a running installation, so there are no
+> credentials behind it and a schedule would only produce failures. It runs in *your* copy once
+> you enable it and add your secrets, as described below. The `CI` workflow does run here.
+
 ### 2. Create a Telegram bot
 
 Telegram is the recommended channel: the API is official, it is free, there is no cap on how many people you can message, and it works from anywhere.
