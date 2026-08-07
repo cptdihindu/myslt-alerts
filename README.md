@@ -292,12 +292,12 @@ Check frequency lives in the `cron` lines of `.github/workflows/slt-check.yml`. 
 
 ## How this works
 
-Two calls against the same private API the MySLT web portal uses:
+This API is undocumented. SLT's own web portal calls it, and the gateway client id those calls carry is served publicly in SLT's web bundle. What follows is a description of the two calls this tool makes and of what they return.
 
 1. `POST https://omniscapp.slt.lk/slt/ext/api/Account/Login` with a form-encoded `username`, `password` and `channelID=WEB`, which returns an `accessToken`.
 2. `GET https://omniscapp.slt.lk/slt/ext/api/BBVAS/UsageSummary?subscriberID=<id>` with that token as a bearer, which returns your quota buckets.
 
-Both calls also carry the header `X-IBM-Client-Id`, an IBM API Connect gateway key taken from SLT's own web portal. It is served to the browser before login and carries no account identifier, so it reads as an application key rather than a per-user secret, though that is an inference rather than something tested. SLT can rotate it whenever they like.
+Both calls also carry the header `X-IBM-Client-Id`, an IBM API Connect gateway key. SLT's own public web bundle serves that value to any visitor who has not logged in, and it carries no account identifier, so it reads as an application key rather than a per-user secret, though that reading is an inference rather than something tested. SLT can rotate it whenever they like, and both it and the base path appear to have changed at least once before.
 
 Things in the response that catch people out:
 
@@ -311,8 +311,8 @@ Full request and response documentation, including the complete response body wi
 
 Read this part before you set it up.
 
-- **This uses an undocumented API.** SLT does not publish it, does not support it, and has not promised it will keep working. It was observed by watching what the MySLT web portal does.
-- **SLT can break it at any time.** The most likely breakage is a rotated `X-IBM-Client-Id`, which stops every caller at once. If that happens, the fix is to read the new value out of the portal and update `CLIENT_ID` in `check.mjs`. Endpoint paths and field names can change too.
+- **This uses an undocumented API.** SLT does not publish it, does not support it, and has not promised it will keep working. It is the same API the MySLT web portal calls, and this tool uses it to read your own account with your own credentials.
+- **SLT can break it at any time.** The most likely breakage is a rotated `X-IBM-Client-Id`, which stops every caller at once. That has happened before, along with a change of base path. If it happens again, the fix is to set `CLIENT_ID` in `check.mjs` to whatever value SLT's web bundle serves at that point. Endpoint paths and field names can change too.
 - **Your MySLT password is stored as a GitHub Actions secret.** GitHub encrypts secrets at rest and only exposes them to workflow runs in the repository they belong to. It also attempts to redact them from logs, but treat that as best-effort string matching rather than a security boundary: a secret that is transformed before printing, re-encoded (base64, URL encoding) or split across output can appear unmasked, and any step in the job can read the environment it is handed. What you are doing is handing your ISP account password to a third-party CI system so a script can log in as you.
 
   It is not only admins who can reach those secrets. Anyone who can modify a workflow or a source file on the branch the workflow runs on can print or exfiltrate them, as can a compromised account with that access, or a third-party action whose mutable tag is repointed at new code. So: keep write access to yourself, turn on 2FA, read the diff before syncing an upstream update into your copy, and remember that every action the workflow calls (`actions/checkout`, `actions/setup-node`, `actions/cache`) runs code you did not write with access to that same environment. Pinning them to a commit SHA rather than a `@v4` tag removes the mutable-tag part. If none of that sits well, run `check.mjs` from your own machine or a small VPS with the credentials in a local file instead. [`SECURITY.md`](SECURITY.md) goes through where the credentials sit, what they are sent to, what lands on disk, and what to do if you leak one.
@@ -320,6 +320,7 @@ Read this part before you set it up.
 - **The MySLT numbers are as fresh as SLT makes them.** The response carries a `reported_time`, and SLT updates usage on their own cadence, so the figures can lag your real usage.
 - **The response semantics here were verified against a single fibre account.** Other package types may expose buckets this project has not seen, so a field can behave differently on your connection.
 - **This project is not affiliated with, endorsed by, or connected to Sri Lanka Telecom in any way.** It is an unofficial tool for reading your own account. Use it on accounts you own, at your own risk.
+- **Where this stands on terms of service and on courtesy to SLT** is set out in the [Legal and ethical note](docs/myslt-api.md#legal-and-ethical-note), which is worth reading once before you run this.
 
 ## Tests
 

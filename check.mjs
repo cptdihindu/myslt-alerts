@@ -18,12 +18,14 @@ import { dirname, join } from "node:path";
 const __dir = dirname(fileURLToPath(import.meta.url));
 const STATE_FILE = join(__dir, "state.json");
 
-// ---- MySLT backend (undocumented; the same calls SLT's own web portal makes) ----
+// ---- MySLT backend (undocumented API; SLT's own web portal calls these endpoints) ----
 const API = "https://omniscapp.slt.lk/slt/ext/api";
-// Gateway key taken from SLT's own public web client, which serves it to the browser before
-// login and carries no account identifier, so it reads as an application id rather than a
-// per-user secret. That is an inference from one capture, not something tested. Assume SLT can
-// change it, in which case every third-party client breaks at once and this line needs updating.
+// Gateway key for the IBM API Connect gateway that fronts SLT's backend. SLT serves this value
+// publicly in its own web bundle, to any visitor and before any login, and it carries no account
+// identifier, so it reads as an application id rather than a per-user secret. That reading is an
+// inference, not something tested. Both this value and the base path above appear to have changed
+// at least once before, so expect them to change again: when they do, every client pinning them
+// breaks at once and these two lines are what needs updating.
 const CLIENT_ID = "b7402e9d66808f762ccedbe42c20668e";
 const LOGIN_URL = `${API}/Account/Login`;
 const USAGE_URL = (sub) => `${API}/BBVAS/UsageSummary?subscriberID=${encodeURIComponent(sub)}`;

@@ -5,10 +5,10 @@ customer portal and mobile app, both branded "MySLT", let an account holder chec
 their monthly data quota they have used. There is no published API for this. The portal talks to
 a private JSON backend, and that backend is what this document describes.
 
-Everything here was reverse engineered by watching the requests SLT's own public web client
-makes, and then checking those two calls against a live account. It is written down so that
-account holders can read their own usage data from their own tooling: a script, a dashboard, a
-home automation box, an alerting job.
+SLT's own web portal calls that backend, and the gateway client id those calls carry is served
+publicly in SLT's web bundle. What follows is a description of the two calls this project makes
+and of what they return. It is written down so that account holders can read their own usage data
+from their own tooling: a script, a dashboard, a home automation box, an alerting job.
 
 **Server-side authorization was never tested, and you should not test it.** `subscriberID` is
 passed as a plain telephone number, which is guessable, and nothing here establishes that SLT's
@@ -35,8 +35,15 @@ No negative test has ever been run. Nothing was probed with a missing or wrong
 `channelID`. Where this document tells you how to handle a failure, that is advice inferred from
 the shape of the API, and it is labelled as such rather than presented as observed behaviour.
 Everything unobserved is collected under [Open questions](#open-questions-not-yet-mapped). If you
-probe something new, please add it there with the evidence: the request you sent and the verbatim
-body that came back.
+probe something new, please add it there with the evidence: the request you sent and the body that
+came back, exactly as it arrived.
+
+One part of this document is broader than that narrow base. No public source describes what this
+API returns: the two requests are documented publicly elsewhere, but the response body is not, so
+the field reference below is the only public description I could find of `dataBundle`, the misspelled
+`errorMessege`, the mix of string and numeric fields, the nullable buckets, and the percentage
+quirk. That is stated with confidence. It is also why a contributed response body from a different
+package type is the most valuable thing anybody can add here.
 
 ---
 
@@ -62,20 +69,27 @@ enforces it, and what a rejection looks like, is an
 [open question](#open-questions-not-yet-mapped). Two things are worth understanding about the
 value itself:
 
-- **It looks like an application identifier rather than an account one.** SLT's own web client
-  hands this value to the browser, which is where this copy was taken from, so it was already
-  being served to a visitor before any login happened. It contains no account identifier, and the
-  same string was accepted on the unauthenticated login call and on the authenticated read, so it
-  does not behave like a per-user or per-session secret. That reading rests on a single browser
-  capture. Whether every visitor is served this same id, and whether the mobile app uses another
-  one, has not been checked.
-- **Assume it can change.** It is a constant copied out of someone else's client, so a rotation
-  would break external callers that pin it. No rotation has actually been seen: there is one
-  capture from one day and no change history behind this document, so how stable the value is
-  over time is unknown, as is what a stale id returns. Expect to re-extract the current value
-  from the portal if previously working calls start failing. The reference client in this
-  repository hardcodes it as `CLIENT_ID` in `check.mjs`; if you are building something
-  longer-lived, read it from configuration instead.
+- **SLT publishes it, and it identifies the application rather than the account.** The value is
+  in SLT's own public web bundle, the JavaScript the portal serves to any visitor who has not
+  logged in, so it reaches a browser before any credentials are entered. It carries no account
+  identifier, and the same string was accepted on the unauthenticated login call and on the
+  authenticated read, so it does not behave like a per-user or per-session secret. All of that is
+  observation. The conclusion usually drawn from it, that SLT therefore treats the value as
+  non-confidential, is an inference, and SLT has not said so anywhere. The narrower point stands
+  on its own: reproducing the id in this document discloses nothing SLT does not already hand to
+  every anonymous visitor. Whether the mobile app carries a different id has not been checked.
+- **Assume it can change, because it appears to have changed before.** This one point comes from
+  comparing older publicly visible clients rather than from this project's own captures, so it sits
+  outside the evidence base described above. On that basis, an earlier generation of this API used a
+  different client id against a different base path, so both halves of what is documented here,
+  the base URL and the id, have rotated at least once already. That makes a future rotation an
+  observation about how this API behaves rather than a guess, and any caller that pins the
+  constant will break when the next one lands. What is still unknown is the cadence: no date is
+  attached to the previous change, and one change is not a rate. Also unknown is what a stale id
+  returns, since none has been sent. Re-extract the current value from the portal if previously
+  working calls start failing. The reference client in this repository hardcodes it as
+  `CLIENT_ID` in `check.mjs`; if you are building something longer-lived, read it from
+  configuration instead.
 
 ### Conventions
 
@@ -417,9 +431,10 @@ behaviour.
   in `errorMessege`. Surface it as-is. No such response has been seen, so if you do get one, the
   body is worth contributing.
 - **Rejected or missing client id.** Untested: nobody has sent a wrong, stale, or absent
-  `X-IBM-Client-Id`. If SLT rotates the value, the expectation is that the gateway rejects the
-  call before it reaches the auth layer, on reads and on login alike, which would make retrying
-  pointless and the fix a re-extraction of the current id from the portal.
+  `X-IBM-Client-Id`. The value has rotated before, so this is the failure mode most likely to
+  arrive on its own one day. The expectation is that the gateway rejects the call before it
+  reaches the auth layer, on reads and on login alike, which would make retrying pointless and
+  the fix a re-extraction of the current id from the portal.
 
 The HTTP status codes and error bodies for bad credentials, an expired token, and a stale client
 id have not been captured, so nothing above should be read as a description of them. They are
@@ -430,7 +445,7 @@ listed as open questions below.
 ## Open questions (not yet mapped)
 
 What is not known. Contributions welcome: probe against your own account, and add the observed
-request and the verbatim response body.
+request and the response body exactly as it came back.
 
 **Authentication**
 
@@ -455,12 +470,15 @@ for anyone willing to try it:
   but unregistered value, and record the status code and body of each.
 - Whether a rejection surfaces as a gateway envelope (like the `URL Open error` body above) or as
   something from the auth layer, and whether login and reads reject alike.
-- Whether every visitor to the portal is served the same id. This copy came from one browser on
-  one machine. A second capture from a different account, or from a different browser, would
-  settle whether the value is shared or handed out per client.
+- Whether the portal ever serves a different id to some visitors. The value documented here is the
+  one in the public bundle, which is a static file rather than something generated per request, so
+  a per-visitor id would be surprising. Nobody has checked whether it is swapped after login, or
+  for particular account types.
 - What the mobile app sends, which may be a different id entirely.
-- How often the value rotates. There is no change history behind this document, so a dated note
-  saying "still this value on <date>", or "changed to X on <date>", is genuinely useful.
+- How often the value rotates. It appears to have changed at least once together with the base
+  path, on the outside evidence noted above, but no
+  date is attached to that change and one change gives no cadence. A dated note saying "still this
+  value on <date>", or "changed on <date>", is genuinely useful.
 
 **Request formats that were never varied**
 
@@ -502,23 +520,75 @@ routes almost certainly exist, but their paths, parameters, and responses are un
 
 ## Legal and ethical note
 
-This document describes how to read **your own account's data from your own account's
-credentials**. It is the same data the MySLT portal shows you after you log in, retrieved the
-same way the portal retrieves it. It is written up for interoperability, so that customers are
+### What this actually is
+
+Reading **your own account's data with your own credentials**, through the same calls SLT's own
+web portal makes. It is the same data the MySLT portal shows you after you log in, retrieved the
+same way the portal retrieves it, and it is written up for interoperability, so that customers are
 not limited to one vendor's web UI when looking at their own usage.
 
-This project is not affiliated with, endorsed by, or supported by Sri Lanka Telecom. "MySLT" and
-"SLT" are their marks, used here only to identify the service being described. The API is
-undocumented and unsupported, which means SLT may change or withdraw it without notice, and
-nothing here is a commitment by them.
+It is worth being precise about what it is not. It is not access to anybody else's account: the
+login is yours, the token SLT issues belongs to your account, and the only `subscriberID` you
+should ever send is your own. There is no paywall involved, no licence check, no access control
+being defeated as far as this project can tell, though note that whether the gateway enforces the
+client id, and whether the backend checks the subscriber id against your token, were both never
+tested and are listed as open questions above. You authenticate the way the portal authenticates you,
+and you read what SLT hands back to you.
 
-Please be a good citizen with it:
+### The gateway client id
+
+`b7402e9d66808f762ccedbe42c20668e` is not a per-user secret, and on the evidence it is not a
+secret at all. SLT's own public web bundle contains it, served to any visitor who has not logged
+in, so anybody who loads the portal already has it. Reprinting it in this document therefore
+discloses nothing that SLT does not already hand to every anonymous browser.
+
+Read that as what it is: a statement about **disclosure**, not a legal opinion about **use**.
+"This value is already public" and "using this API is permitted" are two separate claims, and only
+the first one is being made here. A careless reader will collapse them. Do not.
+
+### Terms of service
+
+SLT's broadband terms list prohibited activities and state that the list is not exhaustive. One of
+the listed items is "Accessing or attempting to access information that does not have public
+access permission." A terms based objection is therefore available to SLT if they want to make
+one, and the terms are their document to interpret.
+
+Two things follow. First, a terms breach is a matter between a customer and their provider, not a
+criminal one, and the realistic consequence in that direction is account level action: a warning,
+a suspension, a disconnection. Second, this document is not going to tell you that you are in the
+clear, and it is not going to tell you that you are in trouble. Those are the facts; the decision
+is yours.
+
+Read your own terms. They are what you agreed to, they can be revised, and yours may differ from
+the ones described here.
+
+### The realistic risk, ranked
+
+By far the most likely thing that happens to you is that **SLT changes the client id or the paths,
+and every third-party client breaks at once, with no notice**. That is not hypothetical. Both the
+client id and the base path appear to have changed at least once before. Every other outcome discussed on
+this page is much less likely than that one.
+
+So plan for the tool breaking. That is the risk you will actually experience, and re-extracting the
+current client id from the portal is the fix.
+
+### Being a good citizen
 
 - Poll at a human cadence. Once or a few times a day is plenty for usage tracking; the upstream
   data only refreshes periodically anyway, as `reported_time` shows. Do not poll in a loop.
 - Back off on errors instead of hammering through them.
-- Use your own credentials only. Do not use this to access accounts that are not yours.
+- Use your own credentials only. Do not use this to access accounts that are not yours, and never
+  request a `subscriberID` that is not yours.
 - Do not use it for bulk collection, scraping at scale, or anything that puts load on
   infrastructure other customers depend on.
+- If SLT asks for this to come down, comply.
+- If SLT publishes an official API, prefer it over this one.
 
-If SLT publishes an official API, prefer it over this one.
+### Disclaimer
+
+The author is a developer and not a lawyer, and none of this is legal advice. This project is not
+affiliated with, endorsed by, or supported by Sri Lanka Telecom. "MySLT" and "SLT" are their marks,
+used here only to identify the service being described. The API is undocumented and unsupported,
+so SLT may change or withdraw it without notice, and nothing here is a commitment by them. If you
+copy this project or this document, check your own terms and your own jurisdiction before you run
+anything.
