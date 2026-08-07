@@ -40,7 +40,7 @@ Paste the relevant console or workflow log output, with credentials removed.
 - Running via: GitHub Actions / locally / other
 - Node version (`node -v`):
 - Operating system:
-- Notification channel in use: Telegram / Green API / text.lk / webhook
+- Notification channel in use: Green API (WhatsApp) / Telegram / text.lk (SMS)
 - Version or commit of this tool:
 
 ## Anything else

@@ -14,7 +14,7 @@ most changes. Paste the relevant log lines with real values redacted.
       build step, Node 18+ built-in `fetch` only.
 - [ ] **Said how I tested it** in the section above.
 - [ ] **No real credentials in the diff or the description:** no MySLT username or password, no
-      bearer or session tokens, no Telegram, Green API or text.lk tokens, no webhook URLs, no
+      bearer or session tokens, no Telegram, Green API or text.lk tokens, no
       phone numbers, no subscriber IDs or account numbers. Placeholders such as `XXXX`,
       `<redacted>` or `94XXXXXXXXX` instead.
 

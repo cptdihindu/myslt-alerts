@@ -19,6 +19,8 @@ Messages that lead with **GB remaining**, because that is the number you actuall
 🔄 SLT quota refreshed: 80 GB remaining (of 80 GB).
 ```
 
+On the setup path below those land in your normal WhatsApp, through Green API, which is the channel this project actually runs on in daily production use. Telegram and SMS via text.lk are supported as well, and [Channel notes](#channel-notes) is straight about what is proven and what is not.
+
 When those fire:
 
 - **Main package:** every 5 GB of usage. Once you have 10 GB or less left, it tightens to every 1 GB, so the last stretch before the cap is the noisiest part.
@@ -35,7 +37,7 @@ State lives in `state.json`, which is how it remembers what it has already told 
 - **Node 18 or newer.** The script uses the built-in `fetch`, so there is nothing to `npm install`. The bundled workflow runs Node 20. Node 20.6 or newer also gets you `--env-file`, which is the tidiest way to run it locally.
 - **Git**, to get the code onto GitHub.
 - **A GitHub account.** The free tier is enough. Public repositories get Actions minutes for free; private ones draw down the monthly free minutes.
-- **A Telegram account** for the recommended channel, or an account with one of the other providers covered under [Configuration](#configuration).
+- **A WhatsApp account you can link a device to**, for the recommended channel, or an account with one of the other providers covered under [Configuration](#configuration).
 - **A MySLT login** (the username you use on the MySLT portal, usually an email address) and your **subscriber ID**, which is your telephone number in `94XXXXXXXXX` form.
 
 Every shell command below is POSIX, so it assumes macOS, Linux or WSL. On Windows, WSL is the least friction; native PowerShell works but you have to translate the syntax yourself (`$env:SLT_USERNAME = 'you@example.com'` for `export`, `Remove-Item -Recurse -Force .git` for `rm -rf .git`).
@@ -89,9 +91,32 @@ Two things to get right. Git will not commit until `user.name` and `user.email` 
 > credentials behind it and a schedule would only produce failures. It runs in *your* copy once
 > you enable it and add your secrets, as described below. The `CI` workflow does run here.
 
-### 2. Create a Telegram bot
+### 2. Set up WhatsApp via Green API
 
-Telegram is the recommended channel: the API is official, it is free, there is no cap on how many people you can message, and it works from anywhere.
+This is the recommended channel for one honest reason: it is the configuration this project actually runs on, in production, every day, and it is the only channel whose delivery has been confirmed end to end. Alerts arrive in your normal WhatsApp.
+
+Read the two drawbacks before you commit to it. Both are real and the author has been caught by both.
+
+- **The free Developer tier caps you at 3 distinct chat contacts per month.** Fine for messaging yourself, awkward for anything wider.
+- **It works by linking a real WhatsApp account as a linked device.** That is your own account driving an automation, and WhatsApp's anti-abuse systems can flag the number for it, especially if you unlink and re-link repeatedly. The author's own bot number was flagged exactly this way and was unusable for roughly three weeks. Scan the QR once and leave it alone.
+
+If either of those matters to you, use Telegram instead, covered in [Other channels](#other-channels) below. Be clear-eyed about the trade: Telegram avoids both problems, but its delivery path in this project has not been confirmed by a real send.
+
+Setting it up:
+
+1. Sign up at [green-api.com](https://green-api.com) and create a free **Developer** instance.
+2. From the instance page, copy `idInstance` (this is `GREENAPI_ID_INSTANCE`), `apiTokenInstance` (`GREENAPI_API_TOKEN`) and the instance `apiUrl` (`GREENAPI_API_URL`, in the form `https://NNNN.api.greenapi.com`). Treat the API token as a credential.
+3. Authorize the instance. On your phone, open WhatsApp, go to **Settings → Linked Devices → Link a Device**, and scan the QR code shown in the Green API console. Scan it once.
+4. Confirm the console reads **Authorized**. You can check the same thing directly: `GET {apiUrl}/waInstance{idInstance}/getStateInstance/{apiToken}` returns `authorized`.
+5. Set `GREENAPI_CHAT_ID` to your own number with the country code and no `+`, for example `947XXXXXXXX`. The `@c.us` suffix is added for you if you leave it off.
+
+Keep WhatsApp active on the phone afterwards, since Green API rides that linked session.
+
+#### Other channels
+
+Both of these are supported and the code for them is in `check.mjs`, but neither has had a delivery confirmed in this project. If you configure more than one channel, the script sends through exactly one, in the order sms, whatsapp, telegram. See [Configuration](#configuration).
+
+**Telegram.** Free, official API, no cap on how many people you can message, and nothing of yours is linked as a device.
 
 1. In Telegram, open a chat with **@BotFather** and send `/newbot`.
 2. Answer the two prompts (a display name and a username ending in `bot`). BotFather replies with a token that looks like `123456:ABC-DEF...`. That is your `TELEGRAM_BOT_TOKEN`.
@@ -100,7 +125,7 @@ Telegram is the recommended channel: the API is official, it is free, there is n
 
 `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates` also works, with two catches. The bot token is a credential, so a browser address bar leaves it in history and in whatever syncs that history: use `curl` instead. And `result[0]` is your chat only if yours is the oldest pending update, which it is not if the bot has other updates queued or has been added to a group, so read the whole list and pick the entry that is yours. If a token leaks, `/revoke` in BotFather replaces it.
 
-Other channels (WhatsApp, SMS, a generic webhook) are covered further down.
+**SMS via text.lk.** A Sri Lankan SMS gateway, so the sender is the gateway and your own number is never linked to anything. Sign up at text.lk, create an API token in the dashboard (`TEXTLK_API_TOKEN`), and set `TEXTLK_RECIPIENT` to your number with the country code and no `+`. Trial credits get you started, after which it needs a paid top-up. Alerts are stripped of emoji and newlines before sending, so each one stays a single SMS segment.
 
 ### 3. Test locally
 
@@ -118,7 +143,7 @@ node --env-file=.env check.mjs --now
 
 `--env-file` needs Node 20.6 or newer. On older Node you load the values yourself, and the usual recipe, `set -a && . ./.env && set +a`, carries a real hazard: `.` **executes the file as a shell script**, so a value containing a backtick or `$(...)` runs as a command while unquoted `$`, quotes and backslashes get mangled. Single-quote every value and treat the file as code you are running. Same for `export` lines typed by hand: single quotes, not double, since double quotes still expand `$` and backticks, and a literal single quote inside the value is written `'\''`.
 
-A successful send prints `Sent via Telegram (manual --now):` and the message. If the channel rejects it, the script exits non-zero with the provider's own error text.
+A successful send prints `Sent via <channel> (manual --now):` and the message, so on the recommended path that reads `Sent via WhatsApp (Green API) (manual --now):`. If the channel rejects it, the script exits non-zero with the provider's own error text.
 
 Running `node check.mjs` without `--now` does a normal threshold check and writes `state.json`.
 
@@ -135,13 +160,14 @@ In the repository, go to **Settings → Secrets and variables → Actions**. On 
 - `SLT_USERNAME`
 - `SLT_PASSWORD`
 - `SLT_SUBSCRIBER_ID`
-- `TELEGRAM_BOT_TOKEN`
-- `TELEGRAM_CHAT_ID`
+- `GREENAPI_API_TOKEN`
+- `GREENAPI_CHAT_ID`
 
-Four of the optional settings are not sensitive, so the workflow reads them from the **Variables** tab on that same page instead: `CHANNEL`, `GREENAPI_ID_INSTANCE`, `GREENAPI_API_URL` and `TEXTLK_SENDER_ID`. The workflow only ever reads those four from `vars`, so setting one as a secret means the script never receives the value at all. What that costs you differs per variable:
+On Telegram instead, the last two become `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`; on text.lk, `TEXTLK_API_TOKEN` and `TEXTLK_RECIPIENT`.
 
-- `CHANNEL` arrives empty, which the script treats as unset, so it follows the precedence order instead of pinning the channel you meant.
-- `GREENAPI_ID_INSTANCE` arrives empty, so WhatsApp counts as unconfigured. With `CHANNEL` unset the script quietly uses the next available channel, or exits 1 with `No notification channel configured` if there is no other. With `CHANNEL=whatsapp` it fails with `CHANNEL is set to "whatsapp" but its environment variables are not all set.`, but only on a run that actually has a message to send.
+Three of the remaining settings are not sensitive, so the workflow reads them from the **Variables** tab on that same page instead: `GREENAPI_ID_INSTANCE`, `GREENAPI_API_URL` and `TEXTLK_SENDER_ID`. The workflow only ever reads those three from `vars`, so setting one as a secret means the script never receives the value at all. What that costs you differs per variable:
+
+- `GREENAPI_ID_INSTANCE` arrives empty, so WhatsApp counts as unconfigured. The script quietly uses whatever other channel you have set, or exits 1 with `No notification channel configured` if there is no other.
 - `GREENAPI_API_URL` and `TEXTLK_SENDER_ID` fall back to their built-in defaults (`https://api.green-api.com` and `TextLKDemo`). That is the quiet case: the demo sender id works, while Green API expects your instance's own numbered host, so the send can fail for a reason the log does not spell out.
 
 Everything else goes in Secrets. The workflow at `.github/workflows/slt-check.yml` reads all of this and passes it to the script as environment variables. It declares `permissions: contents: read` and never writes to your repository.
@@ -211,30 +237,23 @@ Then pick one notification channel and set its variables:
 
 | Channel | Variables | Notes |
 | --- | --- | --- |
-| Telegram (recommended) | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Official API, free, no cap on recipients. |
-| WhatsApp via Green API | `GREENAPI_ID_INSTANCE`, `GREENAPI_API_TOKEN`, `GREENAPI_CHAT_ID`, `GREENAPI_API_URL` | Advanced. Read the caveats below. `GREENAPI_API_URL` defaults to `https://api.green-api.com`, but your instance has its own numbered host in the form `https://NNNN.api.greenapi.com`, shown in the Green API console. `GREENAPI_CHAT_ID` is a number with country code and no `+`; the `@c.us` suffix is added for you if you leave it off. |
-| SMS via text.lk | `TEXTLK_API_TOKEN`, `TEXTLK_RECIPIENT`, `TEXTLK_SENDER_ID` | Sri Lanka only. `TEXTLK_RECIPIENT` is your number with country code and no `+`. `TEXTLK_SENDER_ID` defaults to `TextLKDemo`, which works immediately; swap in your own once it is approved. |
-| Generic webhook | `WEBHOOK_URL` | POSTs `{"text": "<message>"}` as JSON. |
+| WhatsApp via Green API (recommended) | `GREENAPI_ID_INSTANCE`, `GREENAPI_API_TOKEN`, `GREENAPI_CHAT_ID`, `GREENAPI_API_URL` | The channel this project runs on. Read the two drawbacks in [part 2](#2-set-up-whatsapp-via-green-api) first: 3 chat contacts a month on the free tier, and your real WhatsApp account linked as a device. `GREENAPI_API_URL` defaults to `https://api.green-api.com`, but your instance has its own numbered host in the form `https://NNNN.api.greenapi.com`, shown in the Green API console. `GREENAPI_CHAT_ID` is a number with country code and no `+`; the `@c.us` suffix is added for you if you leave it off. |
+| Telegram | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Official API, free, no cap on recipients, no account of yours linked as a device. Delivery not yet confirmed in this project. |
+| SMS via text.lk | `TEXTLK_API_TOKEN`, `TEXTLK_RECIPIENT`, `TEXTLK_SENDER_ID` | Sri Lanka only. `TEXTLK_RECIPIENT` is your number with country code and no `+`. `TEXTLK_SENDER_ID` defaults to `TextLKDemo`, which works immediately; swap in your own once it is approved. Delivery not yet confirmed in this project. |
 
-Set exactly one channel group. If you configure several, the script still sends through a single channel, picked by the `PRECEDENCE` array in `check.mjs`: Telegram first, then WhatsApp, then SMS, then webhook. It does not fan out to all of them.
+Set exactly one channel group. If you configure several, the script still sends through a single channel, picked by the `PRECEDENCE` array in `check.mjs`: SMS first, then WhatsApp, then Telegram. It does not fan out to all of them.
 
-One optional setting overrides that order:
-
-| Variable | What it does |
-| --- | --- |
-| `CHANNEL` | Pins one channel by name instead of following the precedence order. One of `telegram`, `whatsapp`, `sms`, `webhook`. Leave it unset to use precedence. The script exits with an error if you name a channel it does not recognise, or one whose own variables are not all set. |
-
-On GitHub Actions, `CHANNEL`, `GREENAPI_ID_INSTANCE`, `GREENAPI_API_URL` and `TEXTLK_SENDER_ID` are read from repository **variables**, not secrets; part 4 covers what breaks if you set one as a secret. A variable you never created arrives as an empty string rather than as unset, but `check.mjs` resolves both defaulted values with `||`, so the defaults above for `GREENAPI_API_URL` and `TEXTLK_SENDER_ID` apply on Actions exactly as they do locally. Green API still needs your instance's own numbered host, so set that one explicitly anyway.
+On GitHub Actions, `GREENAPI_ID_INSTANCE`, `GREENAPI_API_URL` and `TEXTLK_SENDER_ID` are read from repository **variables**, not secrets; part 4 covers what breaks if you set one as a secret. A variable you never created arrives as an empty string rather than as unset, but `check.mjs` resolves both defaulted values with `||`, so the defaults above for `GREENAPI_API_URL` and `TEXTLK_SENDER_ID` apply on Actions exactly as they do locally. Green API still needs your instance's own numbered host, so set that one explicitly anyway.
 
 ### Channel notes
 
-**Telegram.** Covered in setup above. Treat the bot token as a credential: keep it out of browser URLs, and `/revoke` it in BotFather if it leaks.
+Where each channel actually stands, plainly. **WhatsApp via Green API is the only one whose delivery is proven**: it is the setup this project runs on, daily, in production. **Telegram and SMS via text.lk are supported and their code is in `check.mjs`, but no delivery through either has been confirmed.** They are expected to work. Nobody has watched them work.
 
-**WhatsApp via Green API (advanced, read this first).** It works, and messages land in your normal WhatsApp, but there are two real costs. The free tier is capped at three distinct chat contacts per month, fine for messaging yourself and awkward for anything else. And it runs by linking a real WhatsApp account as a linked device (**Settings → Linked Devices → Link a Device** on your phone, scanning the QR in the Green API console). That is your actual account driving an automation, and WhatsApp's anti-abuse systems can flag or ban a number for it, especially if you repeatedly unlink and re-link. If your number matters to you, use Telegram. Setup: create a free Developer instance at green-api.com, copy `idInstance`, `apiTokenInstance` and the instance `apiUrl`, scan the QR, and confirm `GET {apiUrl}/waInstance{id}/getStateInstance/{token}` returns `authorized`. Keep WhatsApp active on the phone, since Green API rides that linked session.
+**WhatsApp via Green API (recommended).** Setup is in [part 2](#2-set-up-whatsapp-via-green-api) of the setup, including the two drawbacks: the free Developer tier caps at 3 distinct chat contacts per month, and it links your real WhatsApp account as a linked device, which WhatsApp's anti-abuse systems can flag a number for, especially after repeated re-linking. The author's own bot number was flagged that way and was unusable for about three weeks, so scan the QR once and leave it. Keep WhatsApp active on the phone, since Green API rides that linked session, and treat `GREENAPI_API_TOKEN` as a credential.
 
-**SMS via text.lk.** A Sri Lankan SMS gateway, so the sender is the gateway and your own number is never involved. Sign up, create an API token in the dashboard, and set your recipient number. You get trial credits to start, after which you need a paid top-up. Alerts are stripped of emoji and newlines before sending so each one stays a single cheap SMS segment.
+**Telegram.** The alternative to pick if either Green API drawback matters to you: official API, free, no recipient cap, and nothing of yours linked as a device. The cost is that you would be the first to exercise its delivery path here. Setup is under [Other channels](#other-channels). Treat the bot token as a credential: keep it out of browser URLs, and `/revoke` it in BotFather if it leaks.
 
-**Generic webhook.** Set `WEBHOOK_URL` and every alert is POSTed as `{"text": "<message>"}` with `Content-Type: application/json`. Slack incoming webhooks accept that shape directly. Discord, ntfy and Home Assistant expect different field names (`content`, `message`, and whatever your automation defines), so point `WEBHOOK_URL` at a small relay or an automation that reads `text` and forwards it in the shape that service wants.
+**SMS via text.lk.** A Sri Lankan SMS gateway, so the sender is the gateway and your own number is never involved. Sign up, create an API token in the dashboard, and set your recipient number. You get trial credits to start, after which you need a paid top-up. Alerts are stripped of emoji and newlines before sending so each one stays a single cheap SMS segment. Note that it sits first in the precedence order, so if you leave it configured next to another channel it is the one that sends.
 
 ## Tuning
 

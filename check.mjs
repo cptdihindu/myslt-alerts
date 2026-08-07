@@ -42,25 +42,18 @@ const {
   SLT_PASSWORD,
   SLT_SUBSCRIBER_ID,   // your account number, e.g. 94XXXXXXXXX
 
-  // Optional: force one channel by name instead of using the precedence order below.
-  // One of: telegram | whatsapp | sms | webhook
-  CHANNEL,
+  // SMS via text.lk (Sri Lanka gateway; needs a paid top-up after the trial credits)
+  TEXTLK_API_TOKEN,
+  TEXTLK_RECIPIENT,
 
-  // Telegram (recommended default: official API, free, no contact limits)
-  TELEGRAM_BOT_TOKEN,
-  TELEGRAM_CHAT_ID,
-
-  // WhatsApp via Green API (advanced; free tier caps at 3 chat contacts per month)
+  // WhatsApp via Green API. This is the setup this project actually runs on.
   GREENAPI_ID_INSTANCE,
   GREENAPI_API_TOKEN,
   GREENAPI_CHAT_ID,    // recipient: 947XXXXXXXX or 947XXXXXXXX@c.us
 
-  // SMS via text.lk (Sri Lanka gateway; needs a paid top-up after trial credits)
-  TEXTLK_API_TOKEN,
-  TEXTLK_RECIPIENT,
-
-  // Generic webhook: POSTs {"text": "..."} so you can wire Discord, Slack, ntfy, etc.
-  WEBHOOK_URL,
+  // Telegram (official API, no contact cap)
+  TELEGRAM_BOT_TOKEN,
+  TELEGRAM_CHAT_ID,
 } = process.env;
 
 // These two need `||` rather than a destructuring default. GitHub Actions passes an unset
@@ -70,22 +63,15 @@ const GREENAPI_API_URL = process.env.GREENAPI_API_URL || "https://api.green-api.
 const TEXTLK_SENDER_ID = process.env.TEXTLK_SENDER_ID || "TextLKDemo";
 
 const channels = {
-  telegram: { ready: !!(TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID), label: "Telegram", send: sendTelegram },
-  whatsapp: { ready: !!(GREENAPI_ID_INSTANCE && GREENAPI_API_TOKEN && GREENAPI_CHAT_ID), label: "WhatsApp (Green API)", send: sendGreenApi },
   sms:      { ready: !!(TEXTLK_API_TOKEN && TEXTLK_RECIPIENT), label: "SMS (text.lk)", send: sendTextLk },
-  webhook:  { ready: !!WEBHOOK_URL, label: "Webhook", send: sendWebhook },
+  whatsapp: { ready: !!(GREENAPI_ID_INSTANCE && GREENAPI_API_TOKEN && GREENAPI_CHAT_ID), label: "WhatsApp (Green API)", send: sendGreenApi },
+  telegram: { ready: !!(TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID), label: "Telegram", send: sendTelegram },
 };
-// Order used when several channels are configured and CHANNEL is not set.
-const PRECEDENCE = ["telegram", "whatsapp", "sms", "webhook"];
+// Order used when more than one channel happens to be configured. Configure exactly one and
+// this never comes up.
+const PRECEDENCE = ["sms", "whatsapp", "telegram"];
 
 function pickChannel() {
-  if (CHANNEL) {
-    const key = CHANNEL.trim().toLowerCase();
-    const c = channels[key];
-    if (!c) throw new Error(`Unknown CHANNEL "${CHANNEL}". Use one of: ${Object.keys(channels).join(", ")}`);
-    if (!c.ready) throw new Error(`CHANNEL is set to "${key}" but its environment variables are not all set.`);
-    return c;
-  }
   const key = PRECEDENCE.find((k) => channels[k].ready);
   return key ? channels[key] : null;
 }
@@ -99,10 +85,9 @@ function requireEnv() {
   if (!PRECEDENCE.some((k) => channels[k].ready)) {
     console.error(
       "No notification channel configured. Set one of:\n" +
-      "  Telegram (recommended): TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID\n" +
-      "  WhatsApp:               GREENAPI_ID_INSTANCE + GREENAPI_API_TOKEN + GREENAPI_CHAT_ID\n" +
-      "  SMS:                    TEXTLK_API_TOKEN + TEXTLK_RECIPIENT\n" +
-      "  Webhook:                WEBHOOK_URL\n" +
+      "  WhatsApp: GREENAPI_ID_INSTANCE + GREENAPI_API_TOKEN + GREENAPI_CHAT_ID\n" +
+      "  Telegram: TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID\n" +
+      "  SMS:      TEXTLK_API_TOKEN + TEXTLK_RECIPIENT\n" +
       "See .env.example for details."
     );
     process.exit(1);
@@ -228,17 +213,6 @@ async function sendTextLk(text) {
   const res = await fetch(url);
   const out = await res.text();
   if (!res.ok) throw new Error("text.lk send failed: " + out.slice(0, 200));
-  return out;
-}
-
-async function sendWebhook(text) {
-  const res = await fetch(WEBHOOK_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
-  });
-  const out = await res.text();
-  if (!res.ok) throw new Error("Webhook send failed: " + out.slice(0, 200));
   return out;
 }
 

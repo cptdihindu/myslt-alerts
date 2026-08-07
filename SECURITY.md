@@ -33,7 +33,26 @@ account number. Naturally, the provider you chose also receives its own API toke
 that is how you authenticate to it, but that token is scoped to that provider and is never
 sent to SLT.
 
-The `X-IBM-Client-Id` value in the source is not a secret. It is the fixed public web client
+There are three channels, and the one you configured is the only third party your alert text
+reaches. Each talks to a single host over HTTPS:
+
+- **WhatsApp via Green API.** `api.green-api.com` by default, or the numbered instance host you
+  set in `GREENAPI_API_URL`. Your instance id and instance token travel in the request path.
+- **Telegram.** `api.telegram.org`, with the bot token in the request path.
+- **SMS via text.lk.** `app.text.lk`, with the API token as a query parameter. Query strings are
+  the part of a URL most likely to be written to a proxy or server log, so treat that token as
+  the easiest of the three to lose and rotate it if you have any doubt.
+
+Green API deserves one extra note, because it is the channel most people here end up using.
+It works by linking a real WhatsApp account to the instance as a linked device, the same
+mechanism WhatsApp Web uses. Anyone holding that instance id and token can send WhatsApp
+messages as that account, which is a good deal more than a token that can only post into one
+chat. Use a number you are happy to dedicate to the bot, keep `GREENAPI_API_TOKEN` and
+`GREENAPI_CHAT_ID` in Actions secrets rather than repository variables, and scan the linking QR
+once rather than repeatedly, since repeated re-linking is what draws attention from WhatsApp's
+anti-abuse systems.
+
+The `X-IBM-Client-Id` value in the source does not appear to be a secret. It is the web client
 key the MySLT portal itself sends on every request.
 
 ## What is written to disk
@@ -50,9 +69,9 @@ There are no credentials, tokens, subscriber IDs, account numbers or phone numbe
 On GitHub Actions, `state.json` is carried between runs in the Actions cache. The workflow
 requests `contents: read` only and never commits anything, so running this on a public
 repository does not publish your usage figures. Locally the file is written next to the script
-and is left untracked rather than gitignored, so you can inspect it. It does reveal roughly how
-much data you use, so if that bothers you, add `state.json` to your own `.gitignore` and take
-care not to commit it by hand.
+and is gitignored by default, because it reveals roughly how much data you use and that is
+rarely something you want in a public fork. You can still open the file to inspect it. If you
+would rather track it, remove the `state.json` line from `.gitignore`.
 
 ## If you leak a credential
 
@@ -65,9 +84,10 @@ site, a commit, or a workflow log from a fork, treat it as compromised:
    not reliably erase it, so changing the password is the step that actually matters.
 
 Do the same for notification tokens: revoke and reissue the Telegram bot token via BotFather,
-or regenerate the token in your Green API or text.lk dashboard. A leaked `WEBHOOK_URL` is worth
-treating the same way, since the URL is the only thing standing between a stranger and your
-channel. Rotate it at the service that issued it.
+or regenerate the token in your Green API or text.lk dashboard. Then update the matching
+repository secret, because the script keeps sending the old value until you do. A leaked Green
+API token is the one to deal with first, since it can send WhatsApp messages as the account you
+linked to that instance.
 
 ## Reporting a vulnerability
 

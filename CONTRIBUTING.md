@@ -1,8 +1,9 @@
 # Contributing
 
-Thanks for looking at this. The project is deliberately small: one source file (`check.mjs`) plus its tests, no
-dependencies, no build step. That makes it easy to contribute to and easy to review, so
-please do not feel you need to be an expert on the MySLT portal to help.
+Thanks for looking at this. The project is deliberately small: one source file (`check.mjs`),
+one test file (`test/check.test.mjs`), no dependencies, no build step. That makes it easy to
+contribute to and easy to review, so please do not feel you need to be an expert on the MySLT
+portal to help.
 
 ## Getting set up
 
@@ -53,15 +54,16 @@ All the sending logic lives in one place. Follow the shape of the existing sende
 
 1. Read the new channel's config from the destructured `process.env` block near the top of
    `check.mjs`.
-2. Write a `send<Channel>(text)` function modelled on `sendTelegram`. Keep the contract the
+2. Write a `send<Channel>(text)` function modelled on `sendGreenApi`. Keep the contract the
    existing ones use: take a plain string, `throw` with a short slice of the provider's
    response on failure, and return the response body on success.
-3. Add an entry to the `channels` object with the three keys the existing ones have: `ready`,
-   a boolean that is true only when every variable your channel needs is set; `label`, the name
-   printed in the `Sent via ...` log line; and `send`, your sender function.
-4. Add the new key to the `PRECEDENCE` array. `pickChannel()` walks that array and the first
-   entry whose `ready` flag is true wins, unless `CHANNEL` is set, which pins one channel by
-   name instead. Today the order is Telegram, WhatsApp (Green API), SMS (text.lk), webhook.
+3. Add an entry to the `channels` object, keyed by a short lowercase name, with the three keys
+   the existing entries have: `ready`, a boolean that is true only when every variable your
+   channel needs is set; `label`, the name printed in the `Sent via ...` log line; and `send`,
+   your sender function.
+4. Add that same key to the `PRECEDENCE` array. `pickChannel()` walks the array and returns the
+   first entry whose `ready` flag is true, so the array is the whole tie-break rule for anyone
+   who has configured more than one channel. Today the order is `sms`, `whatsapp`, `telegram`.
    Put a new channel wherever it belongs and say so in your pull request, since changing the
    order changes behaviour for existing users.
 5. Add a line for the new channel to the help text in `requireEnv()`, so someone who has
@@ -72,6 +74,13 @@ All the sending logic lives in one place. Follow the shape of the existing sende
 
 Channels that need no account and no paid plan are the most useful to the project, but any
 working channel is welcome.
+
+One thing to know before you touch shared sending code: WhatsApp via Green API is the channel
+this project actually runs on every day, and it is the only one whose delivery has been
+confirmed end to end. Telegram and text.lk are implemented, but nobody has reported a real
+delivery through either of them yet. So please say in your pull request which channel you
+genuinely sent a message through, and treat a confirmed Telegram or text.lk send as a useful
+contribution in its own right.
 
 ## Contributing MySLT API findings
 
@@ -97,7 +106,7 @@ That includes:
 
 - your MySLT username, password, or any session or bearer token
 - your subscriber ID and account number
-- Telegram bot tokens, Green API instance tokens, text.lk API tokens, webhook URLs
+- Telegram bot tokens, Green API instance tokens, text.lk API tokens
 - your phone number
 
 Replace them before you post. `XXXX`, `<redacted>`, or `94XXXXXXXXX` all work fine. Keeping

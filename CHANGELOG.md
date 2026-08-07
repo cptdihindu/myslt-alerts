@@ -22,10 +22,18 @@ and messages you as the quota drains.
 - **Add-on (VAS) bundle tracking**, alerting every 10 GB used (`ADDON_STEP_GB`). A changed
   bundle limit or a usage reset is treated as a new or topped-up bundle, and the tool
   re-baselines against it without sending anything.
-- **Four notification channels:** Telegram, WhatsApp through Green API, SMS through text.lk
-  (emoji and newlines stripped so an alert stays one segment), and a generic webhook that POSTs
-  `{"text": "<message>"}` as JSON. Exactly one channel sends: the `PRECEDENCE` order is
-  Telegram, WhatsApp, SMS, webhook, and setting `CHANNEL` pins one by name instead.
+- **Three notification channels:** WhatsApp through Green API, Telegram, and SMS through text.lk
+  (emoji and newlines stripped so an alert stays one segment). Exactly one channel sends, chosen
+  by the `PRECEDENCE` order in `check.mjs`: SMS, WhatsApp, Telegram. Configure a single channel
+  and that order never comes up.
+- **Green API as the recommended path.** It is the configuration this project runs on in
+  production every day and the only channel with a delivery confirmed end to end. The costs are
+  real and stated in `.env.example`: the free tier caps at 3 distinct chat contacts per month,
+  and because it links a real WhatsApp account as a linked device, repeated re-linking can get a
+  number flagged by WhatsApp. Telegram is the alternative when either of those matters, with the
+  caveat that its path here has not had a confirmed delivery yet.
+- CallMeBot, which the original private version used for WhatsApp, was dropped before this
+  release. Its relay is unreliable.
 - **On-demand check** with `node check.mjs --now`, which ignores thresholds and saved state and
   sends a snapshot: main balance, add-on balance, any bonus, free or extra GB buckets that still
   have something left, and the package name with its reset date. It is the quickest way to prove

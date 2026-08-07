@@ -58,27 +58,21 @@ jobs:
           SLT_PASSWORD: ${{ secrets.SLT_PASSWORD }}
           SLT_SUBSCRIBER_ID: ${{ secrets.SLT_SUBSCRIBER_ID }}
 
-          # Optional: pin one channel (telegram | whatsapp | sms | webhook).
-          CHANNEL: ${{ vars.CHANNEL }}
-
-          # Telegram (recommended default)
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-
-          # WhatsApp via Green API (advanced). The instance id and host are not secret, so set
+          # WhatsApp via Green API (recommended). The instance id and host are not secret, so set
           # them as repository variables; only the token and your number belong in secrets.
           GREENAPI_ID_INSTANCE: ${{ vars.GREENAPI_ID_INSTANCE }}
           GREENAPI_API_URL: ${{ vars.GREENAPI_API_URL }}
           GREENAPI_API_TOKEN: ${{ secrets.GREENAPI_API_TOKEN }}
           GREENAPI_CHAT_ID: ${{ secrets.GREENAPI_CHAT_ID }}
 
+          # Telegram
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
           # SMS via text.lk
           TEXTLK_API_TOKEN: ${{ secrets.TEXTLK_API_TOKEN }}
           TEXTLK_RECIPIENT: ${{ secrets.TEXTLK_RECIPIENT }}
           TEXTLK_SENDER_ID: ${{ vars.TEXTLK_SENDER_ID }}
-
-          # Generic webhook (Discord, Slack, ntfy, Home Assistant, and so on)
-          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
         run: node check.mjs ${{ inputs.now && '--now' || '' }}
 
       - name: Fingerprint state after run
