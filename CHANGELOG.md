@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 1.0.0 - 2026-08-06
+## [1.0.0] - 2026-08-07
 
 Initial public release. `check.mjs` signs into the MySLT backend, reads your broadband usage,
 and messages you as the quota drains.
@@ -70,3 +70,5 @@ and messages you as the quota drains.
   Credentials are read from environment variables only, state stays in the Actions cache, and
   nothing sensitive is printed in the run log. `SECURITY.md` covers the trade-off of holding a
   MySLT password as a CI secret.
+
+[1.0.0]: https://github.com/ri7in/myslt-alerts/releases/tag/v1.0.0

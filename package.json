@@ -1,6 +1,7 @@
 {
   "name": "myslt-alerts",
   "version": "1.0.0",
+  "private": true,
   "description": "Zero-dependency Node CLI that checks your Sri Lanka Telecom (SLT) broadband usage and alerts you on WhatsApp, Telegram or SMS before you run out of data.",
   "type": "module",
   "main": "check.mjs",
