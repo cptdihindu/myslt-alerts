@@ -22,10 +22,11 @@ publishing it or opening an issue here.
 
 **Status of this document.** The evidence behind it is narrow, and it is worth knowing exactly how
 narrow. Two endpoints have ever been called, `POST /Account/Login` and `GET /BBVAS/UsageSummary`,
-against one account on 2026-08-06: a residential fibre connection on the "FIBER STARTER" package.
+against one account on 2026-08-06: a single residential fibre connection on a consumer package.
 Three response bodies were captured in total, a successful login, a successful usage read, and one
 transient gateway error from the login call. Every response field described in the Authentication
-and Usage sections comes from those bodies. Request fields were taken from the calls that were
+and Usage sections comes from those bodies. The sample body printed below keeps the structure of
+what came back and replaces the account's own figures with synthetic ones, as noted there. Request fields were taken from the calls that were
 actually sent, which is why `channelID` is marked "assumed" below: it was sent every time, so
 whether it is required was never tested.
 
@@ -86,8 +87,8 @@ These describe the two endpoints that were called, `POST /Account/Login` and
   same is unknown.
 - Both endpoints returned JSON, on the successful calls and on the one gateway failure that was
   captured.
-- **The volume figures came back as strings** in the usage response (`"limit": "80.0"`), while
-  some other fields in the same body are real JSON numbers (`"percentage": 81`, `"timestamp": 0`).
+- **The volume figures came back as strings** in the usage response (`"limit": "100.0"`), while
+  some other fields in the same body are real JSON numbers (`"percentage": 75`, `"timestamp": 0`).
   So the response mixes both, and you should parse rather than assume either. The login response
   carries no numeric fields, so this is one endpoint's behaviour rather than a house style you
   can count on elsewhere.
@@ -174,8 +175,14 @@ Returns the current billing period's data allowances and consumption for one sub
 |---|---|---|
 | `subscriberID` | yes | Identifies the connection to report on. Exactly one value has ever been sent: the account telephone number in international dialling form, no plus sign and no leading zero, shaped like `94XXXXXXXXX`. That value worked, and it is the form SLT's own portal sends. No other format was tried, so whether local form (`0XXXXXXXXX`), a leading plus, a bare account number, or the login username would also be accepted is untested. |
 
-**Response `200`** (complete body from a live FIBER STARTER account with an active add-on
-bundle, reproduced verbatim)
+**Response `200`**, from a live residential account with an active add-on bundle. The structure is
+reproduced exactly as it was returned: every field name, its spelling, its type, the nesting, and
+which buckets came back `null` are all as captured. The values are not. Every figure, the package
+name, and both dates have been replaced with synthetic ones, so that the sample does not publish a
+real account's consumption. The synthetic set is internally consistent, so the relationships the
+rest of this document draws out of it (`limit - used = remaining`, a fully consumed bonus bucket,
+`percentage` tracking the remainder) hold in the numbers below exactly as they held in the real
+body.
 
 ```json
 {
@@ -184,31 +191,31 @@ bundle, reproduced verbatim)
   "exceptionDetail": null,
   "dataBundle": {
     "status": "NORMAL",
-    "reported_time": "06-Aug-2026 03:25 PM",
-    "my_package_summary":    { "limit": "80.0",  "used": "15.5", "volume_unit": "GB" },
-    "bonus_data_summary":    { "limit": "3.1",   "used": "3.1",  "volume_unit": "GB" },
+    "reported_time": "01-Jan-2026 12:00 PM",
+    "my_package_summary":    { "limit": "100.0", "used": "25.0", "volume_unit": "GB" },
+    "bonus_data_summary":    { "limit": "5.0",   "used": "5.0",  "volume_unit": "GB" },
     "free_data_summary":     null,
-    "vas_data_summary":      { "limit": "100.0", "used": "49.6", "volume_unit": "GB" },
+    "vas_data_summary":      { "limit": "40.0",  "used": "12.0", "volume_unit": "GB" },
     "extra_gb_data_summary": null,
     "my_package_info": {
-      "package_name": "FIBER STARTER",
+      "package_name": "EXAMPLE PACKAGE",
       "package_summary": null,
       "usageDetails": [
         {
           "name": "Any Time Usage.",
-          "limit": "80.0",
-          "remaining": "64.5",
-          "used": "15.5",
-          "percentage": 81,
+          "limit": "100.0",
+          "remaining": "75.0",
+          "used": "25.0",
+          "percentage": 75,
           "volume_unit": "GB",
-          "expiry_date": "31-Aug",
+          "expiry_date": "31-Jan",
           "claim": null,
           "unsubscribable": false,
           "timestamp": 0,
           "subscriptionid": null
         }
       ],
-      "reported_time": "06-Aug-2026 03:25 PM"
+      "reported_time": "01-Jan-2026 12:00 PM"
     }
   },
   "errorShow": null,
@@ -220,7 +227,8 @@ bundle, reproduced verbatim)
 
 The tables below describe one account, probed once, on 2026-08-06. Where a field is described as
 `null`, `0`, or single-valued, that is what one sample showed, not a survey of the API. Treat
-every such entry as unconfirmed.
+every such entry as unconfirmed. Any example value quoted in the tables is the synthetic one from
+the sample above; the field names, the types, and which fields came back `null` are as observed.
 
 **Envelope (top level)**
 
@@ -238,7 +246,7 @@ every such entry as unconfirmed.
 | Field | Type | Meaning |
 |---|---|---|
 | `status` | string | Account/quota state. `"NORMAL"` is the only value observed. Other values are unknown. |
-| `reported_time` | string | When SLT's own metering last updated, formatted `DD-MMM-YYYY hh:mm AM/PM` (for example `06-Aug-2026 03:25 PM`). This is SLT's reporting timestamp, not the time of your request, so usage can lag reality. No timezone is included; Sri Lanka is UTC+5:30. |
+| `reported_time` | string | When SLT's own metering last updated, formatted `DD-MMM-YYYY hh:mm AM/PM` (for example `01-Jan-2026 12:00 PM`). This is SLT's reporting timestamp, not the time of your request, so usage can lag reality. No timezone is included; Sri Lanka is UTC+5:30. |
 | `my_package_summary` | object or null | The main monthly package quota. This is the number most users mean by "my data". |
 | `bonus_data_summary` | object or null | A bonus allowance bucket. Populated in the one response captured. Treat it as nullable, since the sibling buckets show that these can be absent, but it has not been seen `null`. |
 | `free_data_summary` | object or null | A free allowance bucket. `null` here. |
@@ -259,8 +267,8 @@ populated shape is assumed to match rather than observed.)
 
 | Field | Type | Meaning |
 |---|---|---|
-| `limit` | string | Total allowance for the bucket, as a decimal string, for example `"80.0"`. |
-| `used` | string | Consumed so far, as a decimal string, for example `"15.5"`. |
+| `limit` | string | Total allowance for the bucket, as a decimal string, for example `"100.0"`. |
+| `used` | string | Consumed so far, as a decimal string, for example `"25.0"`. |
 | `volume_unit` | string | Unit for `limit` and `used`. `"GB"` is the only value observed. Do not assume it is always GB; read it and display it. |
 
 Remaining volume is not provided at this level. Compute it as `limit - used` after parsing both
@@ -270,7 +278,7 @@ as floats, and guard against a negative result.
 
 | Field | Type | Meaning |
 |---|---|---|
-| `package_name` | string | Marketing name of the broadband package, for example `"FIBER STARTER"`. |
+| `package_name` | string | Marketing name of the broadband package. The sample above carries the placeholder `"EXAMPLE PACKAGE"`; a real response carries SLT's own name for the package on the connection. |
 | `package_summary` | unknown or null | `null`. Contents unknown. Despite the name it is not one of the volume buckets described above. |
 | `usageDetails` | array | One entry per named allowance line on the package. See below. |
 | `reported_time` | string | Same format and meaning as `dataBundle.reported_time`. The two matched in the sample. Whether they can ever diverge is unknown. |
@@ -283,9 +291,9 @@ as floats, and guard against a negative result.
 | `limit` | string | Total allowance for this line, decimal string. |
 | `remaining` | string | Remaining allowance, decimal string. Unlike the `*_summary` buckets, this level does give you the remainder directly. |
 | `used` | string | Consumed so far, decimal string. |
-| `percentage` | number | An actual JSON number, not a string. **It appears to track the share remaining rather than the share used.** In the observed response, `remaining / limit = 64.5 / 80 = 80.6%`, which matches the reported `81`, while used would have been 19%. That reading rests on a single account and a single sample, so verify it before relying on it. Deriving your own percentage from `used` and `limit` is safer than trusting this field. |
+| `percentage` | number | An actual JSON number, not a string. **It appears to track the share remaining rather than the share used.** In the captured response the field matched the remaining share and not the used share, and the synthetic sample above preserves that: `remaining / limit = 75 / 100 = 75%`, which matches the reported `75`, while used would have been 25%. That reading rests on a single account and a single sample, so verify it before relying on it. Deriving your own percentage from `used` and `limit` is safer than trusting this field. |
 | `volume_unit` | string | Unit for the three volume fields, for example `"GB"`. |
-| `expiry_date` | string | When the current quota lapses, formatted `DD-MMM` with **no year**, for example `"31-Aug"`. Infer the year from context, and beware of the December to January rollover. |
+| `expiry_date` | string | When the current quota lapses, formatted `DD-MMM` with **no year**, for example `"31-Jan"`. Infer the year from context, and beware of the December to January rollover. |
 | `claim` | unknown or null | `null`. Purpose unknown. |
 | `unsubscribable` | boolean | `false`. The name points at whether the allowance can be cancelled from the portal, which would fit an add-on better than a base package line, but nothing confirms that. |
 | `timestamp` | number | `0`. Meaning and units unknown. Do not treat it as a Unix time until someone sees a non-zero value. |
@@ -293,7 +301,7 @@ as floats, and guard against a negative result.
 
 #### Traps, in short
 
-1. Volumes are strings. `"80.0" > "9.0"` evaluates to `false` in most languages. Parse before comparing.
+1. Volumes are strings. `"100.0" > "9.0"` evaluates to `false` in most languages. Parse before comparing.
 2. `errorMessege` is misspelled in the API itself.
 3. `percentage` looks like remaining rather than used, so a naive progress bar will run backwards.
 4. Summary buckets go `null`. Two of the five were `null` in the one sample; handle all four

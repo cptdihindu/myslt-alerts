@@ -26,8 +26,8 @@ and messages you as the quota drains.
   (emoji and newlines stripped so an alert stays one segment). Exactly one channel sends, chosen
   by the `PRECEDENCE` order in `check.mjs`: SMS, WhatsApp, Telegram. Configure a single channel
   and that order never comes up.
-- **Green API as the recommended path.** It is the configuration this project runs on in
-  production every day and the only channel with a delivery confirmed end to end. The costs are
+- **Green API as the recommended path.** It is the only channel with a delivery confirmed end to
+  end, and the best tested path in this project. The costs are
   real and stated in `.env.example`: the free tier caps at 3 distinct chat contacts per month,
   and because it links a real WhatsApp account as a linked device, repeated re-linking can get a
   number flagged by WhatsApp. Telegram is the alternative when either of those matters, with the

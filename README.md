@@ -13,13 +13,13 @@ A single Node file with zero npm dependencies. It signs into the MySLT backend, 
 Messages that lead with **GB remaining**, because that is the number you actually care about:
 
 ```
-📶 SLT data: 64.5 GB remaining (of 80 GB).
-⚠️ SLT data LOW: only 8.2 GB remaining!
-➕ SLT add-on: 50.4 GB remaining (of 100 GB).
-🔄 SLT quota refreshed: 80 GB remaining (of 80 GB).
+📶 SLT data: 75 GB remaining (of 100 GB).
+⚠️ SLT data LOW: only 8 GB remaining!
+➕ SLT add-on: 28 GB remaining (of 40 GB).
+🔄 SLT quota refreshed: 100 GB remaining (of 100 GB).
 ```
 
-On the setup path below those land in your normal WhatsApp, through Green API, which is the channel this project actually runs on in daily production use. Telegram and SMS via text.lk are supported as well, and [Channel notes](#channel-notes) is straight about what is proven and what is not.
+On the setup path below those land in your normal WhatsApp, through Green API, which is the best supported and best tested channel here. Telegram and SMS via text.lk are supported as well, and [Channel notes](#channel-notes) is straight about what is proven and what is not.
 
 When those fire:
 
@@ -93,12 +93,12 @@ Two things to get right. Git will not commit until `user.name` and `user.email` 
 
 ### 2. Set up WhatsApp via Green API
 
-This is the recommended channel for one honest reason: it is the configuration this project actually runs on, in production, every day, and it is the only channel whose delivery has been confirmed end to end. Alerts arrive in your normal WhatsApp.
+This is the recommended channel for one honest reason: it is the only channel whose delivery has been confirmed end to end, and it is the best tested path in this project. Alerts arrive in your normal WhatsApp.
 
-Read the two drawbacks before you commit to it. Both are real and the author has been caught by both.
+Read the two drawbacks before you commit to it. Both are real and both bite in practice.
 
 - **The free Developer tier caps you at 3 distinct chat contacts per month.** Fine for messaging yourself, awkward for anything wider.
-- **It works by linking a real WhatsApp account as a linked device.** That is your own account driving an automation, and WhatsApp's anti-abuse systems can flag the number for it, especially if you unlink and re-link repeatedly. The author's own bot number was flagged exactly this way and was unusable for roughly three weeks. Scan the QR once and leave it alone.
+- **It works by linking a real WhatsApp account as a linked device.** That is your own account driving an automation, and WhatsApp's anti-abuse systems can flag the number for it, especially if you unlink and re-link repeatedly. A number flagged that way can stay unusable for weeks, and it is your everyday WhatsApp number carrying the risk. Scan the QR once and leave it alone.
 
 If either of those matters to you, use Telegram instead, covered in [Other channels](#other-channels) below. Be clear-eyed about the trade: Telegram avoids both problems, but its delivery path in this project has not been confirmed by a real send.
 
@@ -237,7 +237,7 @@ Then pick one notification channel and set its variables:
 
 | Channel | Variables | Notes |
 | --- | --- | --- |
-| WhatsApp via Green API (recommended) | `GREENAPI_ID_INSTANCE`, `GREENAPI_API_TOKEN`, `GREENAPI_CHAT_ID`, `GREENAPI_API_URL` | The channel this project runs on. Read the two drawbacks in [part 2](#2-set-up-whatsapp-via-green-api) first: 3 chat contacts a month on the free tier, and your real WhatsApp account linked as a device. `GREENAPI_API_URL` defaults to `https://api.green-api.com`, but your instance has its own numbered host in the form `https://NNNN.api.greenapi.com`, shown in the Green API console. `GREENAPI_CHAT_ID` is a number with country code and no `+`; the `@c.us` suffix is added for you if you leave it off. |
+| WhatsApp via Green API (recommended) | `GREENAPI_ID_INSTANCE`, `GREENAPI_API_TOKEN`, `GREENAPI_CHAT_ID`, `GREENAPI_API_URL` | The best tested channel here, and the only one with a delivery confirmed end to end. Read the two drawbacks in [part 2](#2-set-up-whatsapp-via-green-api) first: 3 chat contacts a month on the free tier, and your real WhatsApp account linked as a device. `GREENAPI_API_URL` defaults to `https://api.green-api.com`, but your instance has its own numbered host in the form `https://NNNN.api.greenapi.com`, shown in the Green API console. `GREENAPI_CHAT_ID` is a number with country code and no `+`; the `@c.us` suffix is added for you if you leave it off. |
 | Telegram | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Official API, free, no cap on recipients, no account of yours linked as a device. Delivery not yet confirmed in this project. |
 | SMS via text.lk | `TEXTLK_API_TOKEN`, `TEXTLK_RECIPIENT`, `TEXTLK_SENDER_ID` | Sri Lanka only. `TEXTLK_RECIPIENT` is your number with country code and no `+`. `TEXTLK_SENDER_ID` defaults to `TextLKDemo`, which works immediately; swap in your own once it is approved. Delivery not yet confirmed in this project. |
 
@@ -247,9 +247,9 @@ On GitHub Actions, `GREENAPI_ID_INSTANCE`, `GREENAPI_API_URL` and `TEXTLK_SENDER
 
 ### Channel notes
 
-Where each channel actually stands, plainly. **WhatsApp via Green API is the only one whose delivery is proven**: it is the setup this project runs on, daily, in production. **Telegram and SMS via text.lk are supported and their code is in `check.mjs`, but no delivery through either has been confirmed.** They are expected to work. Nobody has watched them work.
+Where each channel actually stands, plainly. **WhatsApp via Green API is the only one whose delivery is proven end to end**, and it is the best tested path here. **Telegram and SMS via text.lk are supported and their code is in `check.mjs`, but no delivery through either has been confirmed.** They are expected to work. Nobody has watched them work.
 
-**WhatsApp via Green API (recommended).** Setup is in [part 2](#2-set-up-whatsapp-via-green-api) of the setup, including the two drawbacks: the free Developer tier caps at 3 distinct chat contacts per month, and it links your real WhatsApp account as a linked device, which WhatsApp's anti-abuse systems can flag a number for, especially after repeated re-linking. The author's own bot number was flagged that way and was unusable for about three weeks, so scan the QR once and leave it. Keep WhatsApp active on the phone, since Green API rides that linked session, and treat `GREENAPI_API_TOKEN` as a credential.
+**WhatsApp via Green API (recommended).** Setup is in [part 2](#2-set-up-whatsapp-via-green-api) of the setup, including the two drawbacks: the free Developer tier caps at 3 distinct chat contacts per month, and it links your real WhatsApp account as a linked device, which WhatsApp's anti-abuse systems can flag a number for, especially after repeated re-linking. A flagged number can stay unusable for weeks, so scan the QR once and leave it. Keep WhatsApp active on the phone, since Green API rides that linked session, and treat `GREENAPI_API_TOKEN` as a credential.
 
 **Telegram.** The alternative to pick if either Green API drawback matters to you: official API, free, no recipient cap, and nothing of yours linked as a device. The cost is that you would be the first to exercise its delivery path here. Setup is under [Other channels](#other-channels). Treat the bot token as a credential: keep it out of browser URLs, and `/revoke` it in BotFather if it leaks.
 
@@ -301,11 +301,11 @@ Both calls also carry the header `X-IBM-Client-Id`, an IBM API Connect gateway k
 
 Things in the response that catch people out:
 
-- Every numeric quantity is a **string**, so `"used": "15.5"` needs `parseFloat`.
+- The volume figures are **strings**, so `"used": "25.0"` needs `parseFloat`, while some other fields in the same body are real JSON numbers. Do not assume either.
 - `my_package_summary` is your main monthly quota and `vas_data_summary` is an add-on bundle bought on top. `bonus_data_summary`, `free_data_summary` and `extra_gb_data_summary` are further buckets that many accounts do not have at all. Every bucket except the main package can come back `null`, so handle that.
-- The `percentage` field appears to track the share **remaining**, not the share used. On the account this was verified against, 64.5 GB left out of 80 GB reported `81`.
+- The `percentage` field appears to track the share **remaining**, not the share used. In the sample, 75 GB left of 100 GB reported `75`, where used would have been 25.
 
-Full request and response documentation, including a complete verified response body and the field-by-field notes, is in [`docs/myslt-api.md`](docs/myslt-api.md).
+Full request and response documentation, including the complete response body with its structure exactly as returned (values replaced with synthetic ones) and the field-by-field notes, is in [`docs/myslt-api.md`](docs/myslt-api.md).
 
 ## Caveats and risks
 
