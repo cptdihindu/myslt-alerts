@@ -29,6 +29,21 @@ Messages that lead with **GB remaining**, because that is the number you actuall
 
 Each of those has detail worth reading, including the route to a private repository, testing locally first, and which settings are repository variables rather than secrets: [docs/setup.md](docs/setup.md).
 
+## Make it yours
+
+Alert whenever suits you. The thresholds are four constants at the top of `check.mjs`:
+
+| Constant | Default | What it controls |
+| --- | --- | --- |
+| `MAIN_STEP_GB` | `5` | Normal spacing on the main package. Set it to `2` to hear from it every 2 GB. |
+| `MAIN_TAIL_GB` | `10` | Where the LOW warnings begin, counted back from your limit. Set it to `20` to start warning with 20 GB left. |
+| `MAIN_TAIL_STEP_GB` | `1` | Spacing once you are inside that last stretch. |
+| `ADDON_STEP_GB` | `10` | The same idea for the add-on (VAS) bundle. |
+
+How often it checks is the `cron` lines in `.github/workflows/slt-check.yml`. Delete the tiers you do not want, or replace all four with a single flat `0 */3 * * *`.
+
+Changing a constant also changes how the saved state is read on the next run, and the thresholds assume the API reports GB. Both are covered in [Tuning](docs/scheduling.md#tuning).
+
 ## Documentation
 
 | Page | Covers |
