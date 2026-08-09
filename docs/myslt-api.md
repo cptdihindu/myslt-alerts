@@ -22,13 +22,13 @@ publishing it or opening an issue here.
 
 **Status of this document.** The evidence behind it is narrow, and it is worth knowing exactly how
 narrow. Two endpoints have ever been called, `POST /Account/Login` and `GET /BBVAS/UsageSummary`,
-against one account on 2026-08-06: a single residential fibre connection on a consumer package.
-Three response bodies were captured in total, a successful login, a successful usage read, and one
-transient gateway error from the login call. Every response field described in the Authentication
-and Usage sections comes from those bodies. The sample body printed below keeps the structure of
-what came back and replaces the account's own figures with synthetic ones, as noted there. Request fields were taken from the calls that were
-actually sent, which is why `channelID` is marked "assumed" below: it was sent every time, so
-whether it is required was never tested.
+against a single account, and three response bodies were captured in total: a successful login, a
+successful usage read, and one transient gateway error from the login call. That is one sample of
+each thing described here, not a survey. Every response field described in the Authentication and
+Usage sections comes from those bodies. The sample body printed below keeps the structure of what
+came back and replaces the account's own figures with synthetic ones, as noted there. Request
+fields were taken from the calls that were actually sent, which is why `channelID` is marked
+"assumed" below: it was sent every time, so whether it is required was never tested.
 
 No negative test has ever been run. Nothing was probed with a missing or wrong
 `X-IBM-Client-Id`, wrong credentials, an expired token, a malformed `subscriberID`, or an omitted
@@ -38,12 +38,10 @@ Everything unobserved is collected under [Open questions](#open-questions-not-ye
 probe something new, please add it there with the evidence: the request you sent and the body that
 came back, exactly as it arrived.
 
-One part of this document is broader than that narrow base. No public source describes what this
-API returns: the two requests are documented publicly elsewhere, but the response body is not, so
-the field reference below is the only public description I could find of `dataBundle`, the misspelled
+What follows is a field by field description of the response: `dataBundle`, the misspelled
 `errorMessege`, the mix of string and numeric fields, the nullable buckets, and the percentage
-quirk. That is stated with confidence. It is also why a contributed response body from a different
-package type is the most valuable thing anybody can add here.
+quirk. All of it rests on the one captured body, which is why a contributed response body from a
+different package type is the most valuable thing anybody can add here.
 
 ---
 
@@ -189,7 +187,7 @@ Returns the current billing period's data allowances and consumption for one sub
 |---|---|---|
 | `subscriberID` | yes | Identifies the connection to report on. Exactly one value has ever been sent: the account telephone number in international dialling form, no plus sign and no leading zero, shaped like `94XXXXXXXXX`. That value worked, and it is the form SLT's own portal sends. No other format was tried, so whether local form (`0XXXXXXXXX`), a leading plus, a bare account number, or the login username would also be accepted is untested. |
 
-**Response `200`**, from a live residential account with an active add-on bundle. The structure is
+**Response `200`**, from a live account with an active add-on bundle. The structure is
 reproduced exactly as it was returned: every field name, its spelling, its type, the nesting, and
 which buckets came back `null` are all as captured. The values are not. Every figure, the package
 name, and both dates have been replaced with synthetic ones, so that the sample does not publish a
@@ -239,7 +237,7 @@ body.
 
 #### Field reference
 
-The tables below describe one account, probed once, on 2026-08-06. Where a field is described as
+The tables below describe one account, probed once. Where a field is described as
 `null`, `0`, or single-valued, that is what one sample showed, not a survey of the API. Treat
 every such entry as unconfirmed. Any example value quoted in the tables is the synthetic one from
 the sample above; the field names, the types, and which fields came back `null` are as observed.
@@ -285,6 +283,17 @@ populated shape is assumed to match rather than observed.)
 | `used` | string | Consumed so far, as a decimal string, for example `"25.0"`. |
 | `volume_unit` | string | Unit for `limit` and `used`. `"GB"` is the only value observed. Do not assume it is always GB; read it and display it. |
 
+**The reference client in this repository does not honour that field, and you should know that
+before you copy from it.** `bucket()` in `check.mjs` carries `volume_unit` through to the message
+text but converts nothing, and the thresholds it then compares those raw figures against
+(`MAIN_STEP_GB`, `MAIN_TAIL_GB`, `MAIN_TAIL_STEP_GB`, `ADDON_STEP_GB`, and the literal 5 that
+decides whether a usage drop counts as a quota reset) are plain numbers assumed to be GB. If a
+response ever came back in another unit, those numbers would be applied to it unchanged: on MB, for
+example, the client would alert every 5 MB while calling it 5 GB in the docs. This has never
+happened, because `"GB"` is the only value seen, and it is written down as a known limitation of
+that client rather than as a property of the API. If you are writing your own client, read the
+field and convert.
+
 Remaining volume is not provided at this level. Compute it as `limit - used` after parsing both
 as floats, and guard against a negative result.
 
@@ -306,7 +315,7 @@ as floats, and guard against a negative result.
 | `remaining` | string | Remaining allowance, decimal string. Unlike the `*_summary` buckets, this level does give you the remainder directly. |
 | `used` | string | Consumed so far, decimal string. |
 | `percentage` | number | An actual JSON number, not a string. **It appears to track the share remaining rather than the share used.** In the captured response the field matched the remaining share and not the used share, and the synthetic sample above preserves that: `remaining / limit = 75 / 100 = 75%`, which matches the reported `75`, while used would have been 25%. That reading rests on a single account and a single sample, so verify it before relying on it. Deriving your own percentage from `used` and `limit` is safer than trusting this field. |
-| `volume_unit` | string | Unit for the three volume fields, for example `"GB"`. |
+| `volume_unit` | string | Unit for the three volume fields, for example `"GB"`. The same caveat applies as above: the reference client in this repository reads this field for display only and assumes GB everywhere it compares a number. |
 | `expiry_date` | string | When the current quota lapses, formatted `DD-MMM` with **no year**, for example `"31-Jan"`. Infer the year from context, and beware of the December to January rollover. |
 | `claim` | unknown or null | `null`. Purpose unknown. |
 | `unsubscribable` | boolean | `false`. The name points at whether the allowance can be cancelled from the portal, which would fit an add-on better than a base package line, but nothing confirms that. |
@@ -506,9 +515,9 @@ routes almost certainly exist, but their paths, parameters, and responses are un
 - Rate limits, throttling thresholds, and whether abuse triggers a block on the client id, the
   account, or the source IP. Assume limits exist and poll conservatively.
 - Whether `my_package_summary` is ever `null`, and what a client should do if it is.
-- Behaviour for non-fibre fixed broadband (ADSL, 4G LTE routers) and for mobile accounts. The
-  `dataBundle` shape may differ, buckets that were `null` here may be populated, and `status` may
-  take other values.
+- Behaviour across connection types and account types (fixed broadband of any flavour, 4G LTE
+  routers, mobile accounts). The `dataBundle` shape may differ, buckets that were `null` here may
+  be populated, and `status` may take other values.
 - Unlimited or uncapped packages: what `limit` and `percentage` contain when there is no cap.
 - Multi-line `usageDetails`, for example packages with separate day and night allowances.
 - The full value space of `status`, `errorCode`, `claim`, `subscriptionid`, and `timestamp`.
@@ -553,24 +562,24 @@ the listed items is "Accessing or attempting to access information that does not
 access permission." A terms based objection is therefore available to SLT if they want to make
 one, and the terms are their document to interpret.
 
-Two things follow. First, a terms breach is a matter between a customer and their provider, not a
-criminal one, and the realistic consequence in that direction is account level action: a warning,
-a suspension, a disconnection. Second, this document is not going to tell you that you are in the
-clear, and it is not going to tell you that you are in trouble. Those are the facts; the decision
-is yours.
+What that means for you is not something this document can settle. It is not going to tell you that
+you are in the clear, and it is not going to tell you that you are in trouble. Those are the facts
+about the terms; the decision is yours.
 
-Read your own terms. They are what you agreed to, they can be revised, and yours may differ from
-the ones described here.
+So read your own terms. They are what you agreed to, they can be revised, and yours may differ from
+the ones described here. If you are unsure what any of it means for you, take advice from someone
+qualified to give it before you run anything.
 
-### The realistic risk, ranked
+### The breakage risk
 
-By far the most likely thing that happens to you is that **SLT changes the client id or the paths,
-and every third-party client breaks at once, with no notice**. That is not hypothetical. Both the
-client id and the base path appear to have changed at least once before. Every other outcome discussed on
-this page is much less likely than that one.
+The one outcome with evidence behind it is that **SLT changes the client id or the paths, and every
+third-party client breaks at once, with no notice**. That is not hypothetical. Both the client id
+and the base path appear to have changed at least once before.
 
-So plan for the tool breaking. That is the risk you will actually experience, and re-extracting the
-current client id from the portal is the fix.
+So plan for the tool breaking, and expect to re-extract the current client id from the portal when
+it does. That is the running cost of using this. It is a statement about maintenance, and not a
+ranking of the other outcomes discussed on this page, which nothing here lets anybody put a
+probability on.
 
 ### Being a good citizen
 

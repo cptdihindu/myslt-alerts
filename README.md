@@ -24,13 +24,15 @@ On the setup path below those land in your normal WhatsApp, through Green API, w
 When those fire:
 
 - **Main package:** every 5 GB of usage. Once you have 10 GB or less left, it tightens to every 1 GB, so the last stretch before the cap is the noisiest part.
-- **Add-on (VAS) bundle:** every 10 GB of usage. If you top the bundle up, the script notices the limit changed or the usage reset, re-baselines quietly, and does not spam you about it.
-- **New billing cycle:** a large drop in usage is treated as a quota reset, and you get one "quota refreshed" message.
+- **Add-on (VAS) bundle:** every 10 GB of usage. If you top the bundle up, the script re-baselines quietly instead of spamming you: that happens whenever the bundle limit changes, or add-on usage drops by more than 5 GB.
+- **New billing cycle:** a drop in main-package usage of more than 5 GB is read as a quota reset, and you get one "quota refreshed" message. That drop is the entire test, so a cycle that turns over on 5 GB or less used is not recognised: no refresh message, and since the milestone is not reset either, the new cycle stays silent until usage climbs back past the old cycle's highest milestone. A change in the main package limit on its own is not treated as a new cycle.
 - **On demand:** `node check.mjs --now` sends a full snapshot immediately, ignoring thresholds: main balance, add-on balance, any bonus, free or extra GB buckets that still have something in them, and your package name with its reset date.
 
 **The very first run sends nothing.** It records where you are and exits. Silence on its own does not prove it worked, though, because a run that could not reach SLT is also silent. Check the log for `First run: baselining main package, no alert.`, or just use `--now`, which sends regardless.
 
 State lives in `state.json`, which is how it remembers what it has already told you about. On GitHub Actions the workflow keeps it in the Actions cache instead of committing it back to your repository. GitHub deletes cache entries unread for 7 days and evicts the oldest once a repository's caches pass 10 GB. If that entry goes, the next run re-baselines silently and you lose whatever would have fired in between: usually one alert, more if the gap spans a quota reset or several thresholds at once. Nothing in the log flags it, so the only symptom is an alert you never received.
+
+State does not guarantee you are only told once. It is saved after every message in a run has been sent, so if one message is delivered and a later one fails, the run exits without saving and the delivered message goes out again on the next run. The same happens if a provider accepts a message but its response never reaches the script. A duplicate after a failed send is normal.
 
 ## Requirements
 
@@ -125,7 +127,7 @@ Both of these are supported and the code for them is in `check.mjs`, but neither
 
 `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates` also works, with two catches. The bot token is a credential, so a browser address bar leaves it in history and in whatever syncs that history: use `curl` instead. And `result[0]` is your chat only if yours is the oldest pending update, which it is not if the bot has other updates queued or has been added to a group, so read the whole list and pick the entry that is yours. If a token leaks, `/revoke` in BotFather replaces it.
 
-**SMS via text.lk.** A Sri Lankan SMS gateway, so the sender is the gateway and your own number is never linked to anything. Sign up at text.lk, create an API token in the dashboard (`TEXTLK_API_TOKEN`), and set `TEXTLK_RECIPIENT` to your number with the country code and no `+`. Trial credits get you started, after which it needs a paid top-up. Alerts are stripped of emoji and newlines before sending, so each one stays a single SMS segment.
+**SMS via text.lk.** A Sri Lankan SMS gateway, so the sender shown to you is the gateway rather than a number of yours. Your number is still sent to text.lk as the recipient on every alert. Sign up at text.lk, create an API token in the dashboard (`TEXTLK_API_TOKEN`), and set `TEXTLK_RECIPIENT` to your number with the country code and no `+`. Trial credits get you started, after which it needs a paid top-up. Alerts are stripped of emoji and newlines before sending, which keeps a threshold alert to one cheap segment.
 
 ### 3. Test locally
 
@@ -145,7 +147,7 @@ node --env-file=.env check.mjs --now
 
 A successful send prints `Sent via <channel> (manual --now):` and the message, so on the recommended path that reads `Sent via WhatsApp (Green API) (manual --now):`. If the channel rejects it, the script exits non-zero with the provider's own error text.
 
-Running `node check.mjs` without `--now` does a normal threshold check and writes `state.json`.
+Running `node check.mjs` without `--now` does a normal threshold check and updates `state.json`, which it rewrites only when the recorded numbers have actually changed.
 
 ### 4. Push it to GitHub and add your credentials
 
@@ -253,7 +255,7 @@ Where each channel actually stands, plainly. **WhatsApp via Green API is the onl
 
 **Telegram.** The alternative to pick if either Green API drawback matters to you: official API, free, no recipient cap, and nothing of yours linked as a device. The cost is that you would be the first to exercise its delivery path here. Setup is under [Other channels](#other-channels). Treat the bot token as a credential: keep it out of browser URLs, and `/revoke` it in BotFather if it leaks.
 
-**SMS via text.lk.** A Sri Lankan SMS gateway, so the sender is the gateway and your own number is never involved. Sign up, create an API token in the dashboard, and set your recipient number. You get trial credits to start, after which you need a paid top-up. Alerts are stripped of emoji and newlines before sending so each one stays a single cheap SMS segment. Note that it sits first in the precedence order, so if you leave it configured next to another channel it is the one that sends.
+**SMS via text.lk.** A Sri Lankan SMS gateway, so the sender shown is the gateway rather than a number of yours, though text.lk still receives your number as the recipient. Sign up, create an API token in the dashboard, and set your recipient number. You get trial credits to start, after which you need a paid top-up. Alerts are stripped of emoji and newlines before sending so a threshold alert stays a single cheap segment. Nothing truncates a long message, so a `--now` snapshot with several buckets on it can run to more than one. Note that it sits first in the precedence order, so if you leave it configured next to another channel it is the one that sends.
 
 ## Tuning
 
@@ -265,6 +267,8 @@ The alert thresholds are constants at the top of `check.mjs`:
 | `MAIN_TAIL_GB` | `10` | Where the danger zone begins, counted back from your limit (`limit - MAIN_TAIL_GB`). Inside it the spacing tightens to `MAIN_TAIL_STEP_GB` and the messages switch to the LOW wording, so changing it changes alert frequency, not just wording. |
 | `MAIN_TAIL_STEP_GB` | `1` | Alert spacing once you are inside that danger zone. |
 | `ADDON_STEP_GB` | `10` | Alert spacing on the add-on (VAS) bundle, in GB used. |
+
+**These are compared against the raw numbers SLT returns, on the assumption that they are GB.** `GB` is the only `volume_unit` seen on any account so far, and the messages print whatever unit the API reports, but the thresholds themselves do no conversion. An account that reported MB would get an alert every 5 MB while this table still said 5 GB.
 
 Want a quick test message without waiting to burn 5 GB? Use `node check.mjs --now` instead of editing constants, since changing a constant also changes how `state.json` is interpreted on the next run.
 
@@ -318,7 +322,7 @@ Read this part before you set it up.
   It is not only admins who can reach those secrets. Anyone who can modify a workflow or a source file on the branch the workflow runs on can print or exfiltrate them, as can a compromised account with that access, or a third-party action whose mutable tag is repointed at new code. So: keep write access to yourself, turn on 2FA, read the diff before syncing an upstream update into your copy, and remember that every action the workflow calls (`actions/checkout`, `actions/setup-node`, `actions/cache`) runs code you did not write with access to that same environment. Pinning them to a commit SHA rather than a `@v4` tag removes the mutable-tag part. If none of that sits well, run `check.mjs` from your own machine or a small VPS with the credentials in a local file instead. [`SECURITY.md`](SECURITY.md) goes through where the credentials sit, what they are sent to, what lands on disk, and what to do if you leak one.
 - **Do not commit credentials.** Keep `.env` gitignored. Nothing produced at run time needs committing either: `state.json` is written beside the script locally and kept in the build cache on Actions.
 - **The MySLT numbers are as fresh as SLT makes them.** The response carries a `reported_time`, and SLT updates usage on their own cadence, so the figures can lag your real usage.
-- **The response semantics here were verified against a single fibre account.** Other package types may expose buckets this project has not seen, so a field can behave differently on your connection.
+- **The response semantics here rest on a single account and a single captured response.** Other package types may expose buckets this project has not seen, so a field can behave differently on your connection.
 - **This project is not affiliated with, endorsed by, or connected to Sri Lanka Telecom in any way.** It is an unofficial tool for reading your own account. Use it on accounts you own, at your own risk.
 - **Where this stands on terms of service and on courtesy to SLT** is set out in the [Legal and ethical note](docs/myslt-api.md#legal-and-ethical-note), which is worth reading once before you run this.
 

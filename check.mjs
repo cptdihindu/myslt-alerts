@@ -6,7 +6,9 @@
 // cron, so there is no server to keep alive.
 //
 // Zero npm dependencies: uses Node 18+ built-in fetch. Threshold state is kept in state.json
-// so you are never double-pinged for the same milestone.
+// so a milestone you have already been told about is not repeated on the next run. State is
+// written only after every message in a run is sent, so a partial send failure can still repeat
+// one: see the known limitations in SECURITY.md.
 //
 // API reference: docs/myslt-api.md
 // Licence: MIT
